@@ -1,151 +1,157 @@
-# Reference: https://medium.com/analytics-vidhya/create-your-own-desktop-pet-with-python-5b369be18868
+import os
+import os.path
+import sys
+
+from PyQt6 import QtGui
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
+from PyQt6.QtWidgets import *
+
+from enum import Enum
 import random
 
-# tkinter for GUI
-import tkinter as tk
-
-x = 0
-# cycle is the image number in gif
-cycle = 0
-check = 1
-toggle_sleep = False
-idle_num = [1, 2, 3, 4]
-sleep_num = [10, 11, 12, 13, 15]
-walk_left = [6, 7]
-walk_right = [8, 9]
-event_number = random.randrange(1, 3, 1)
-impath = 'assets\\animation_frames\\'
-# transfer random no. to event
+# Image Path
+ANIMATION_FRAMES_PATH = 'assets\\animation_frames\\'
+tempgifpath = "assets\\animation_frames\\idle\\"
+tempimgspath = [ANIMATION_FRAMES_PATH +
+                name for name in os.listdir(ANIMATION_FRAMES_PATH)]
 
 
-def event(cycle, check, event_number, x):
-    if event_number in idle_num:
-        check = 0
-        print('idle')
-        window.after(400, update, cycle, check,
-                     event_number, x)  # no. 1,2,3,4 = idle
-    elif event_number == 5:
-        check = 1
-        print('from idle to sleep')
-        # no. 5 = idle to sleep
-        window.after(100, update, cycle, check, event_number, x)
-    elif event_number in walk_left:
-        check = 4
-        print('walking towards left')
-        # no. 6,7 = walk towards left
-        window.after(100, update, cycle, check, event_number, x)
-    elif event_number in walk_right:
-        check = 5
-        print('walking towards right')
-        # no 8,9 = walk towards right
-        window.after(100, update, cycle, check, event_number, x)
-    elif event_number in sleep_num:
-        check = 2
-        print('sleep')
-        # no. 10,11,12,13,15 = sleep
-        window.after(1000, update, cycle, check, event_number, x)
-    elif event_number == 14:
-        check = 3
-        print('from sleep to idle')
-        # no. 15 = sleep to idle
-        window.after(100, update, cycle, check, event_number, x)
-
-# making gif work
+class State(Enum):
+    idle = 0
+    idle_to_sleep = 1
+    sleep = 2
+    sleep_to_idle = 3
+    walk_left = 4
+    walk_right = 5
 
 
-def gif_work(cycle, frames, event_number, first_num, last_num):
-    if cycle < len(frames) - 1:
-        cycle += 1
-    else:
-        cycle = 0
-        event_number = random.randrange(first_num, last_num+1, 1)
-    return cycle, event_number
+# [State.idle, State.idle_to_sleep,  State.sleep, State.sleep_to_idle, State.walk_left, State.walk_right]
+# Possible next states of cat based on current state
+NEXT_STATE = {
+    State.idle: [State.idle, State.idle_to_sleep, State.walk_left, State.walk_right],
+    State.idle_to_sleep: [State.sleep],
+    State.sleep: [State.sleep, State.sleep_to_idle],
+    State.sleep_to_idle: [State.idle, State.walk_left, State.walk_right],
+    State.walk_left: [State.idle, State.idle_to_sleep, State.walk_left, State.walk_right],
+    State.walk_right: [State.idle, State.idle_to_sleep, State.walk_left, State.walk_right],
+}
+
+STATE_DELAYS = {
+    State.idle: 400,
+    State.idle_to_sleep: 100,
+    State.sleep: 1000,
+    State.sleep_to_idle: 100,
+    State.walk_left: 100,
+    State.walk_right: 100,
+}
+
+STATE_DISPLACEMENTS = {
+    State.idle: 0,
+    State.idle_to_sleep: 0,
+    State.sleep: 0,
+    State.sleep_to_idle: 0,
+    State.walk_left: -3,
+    State.walk_right: 3,
+}
 
 
-def update(cycle, check, event_number, x):
-    global toggle_sleep
-    if(toggle_sleep):
-        print("Toggling...")
-        if(check == 0 or check == 4 or check == 5):
-            check = 3
+class window(QWidget):
+    cycle = 0
+    animationFramePaths = None
+    state = State.idle
+
+    xcoord = 0
+    ycoord = 0
+
+    def __init__(self, parent=None):
+        super(window, self).__init__(parent)
+
+        # Get window size
+        self.xcoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().width() - 250
+        self.ycoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().height() - 100
+
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
+                            Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.SubWindow)
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.repaint()
+        self.label = QLabel(self)
+
+        self.installEventFilter(self)
+
+        self.resize(100, 100)
+        # self.label.move(50, 20)
+
+        self.timer = QTimer()
+        self.next_state()
+        self.timer.timeout.connect(self.update)
+        self.timer.start(1)
+
+        # I don't know why, but not having this line breaks the animation, and I'm not going to question why
+        self.label.setPixmap(QPixmap(self.animationFramePaths[self.cycle]))
+
+    def update(self):
+        # print("Update!")
+        self.render_next_frame()
+
+    def render_next_frame(self):
+        self.get_next_frame()
+        self.label.setPixmap(QPixmap(self.animationFramePaths[self.cycle]))
+        # self.label.setStyleSheet("""background-color: #000000""")
+        self.timer.start(STATE_DELAYS[self.state])
+
+        self.xcoord += STATE_DISPLACEMENTS[self.state]
+        self.move(self.xcoord, self.ycoord)
+
+    # Gets the next frame in the cycle, or updates to a new state otherwise.
+    def get_next_frame(self):
+        if(self.cycle < len(self.animationFramePaths) - 1):
+            self.cycle += 1
         else:
-            check = 1
-        cycle = 0
-        toggle_sleep = False
-    # idle
-    if check == 0:
-        frame = idle[cycle]
-        cycle, event_number = gif_work(cycle, idle, event_number, 1, 9)
+            self.next_state()
 
-    # idle to sleep
-    elif check == 1:
-        frame = idle_to_sleep[cycle]
-        cycle, event_number = gif_work(
-            cycle, idle_to_sleep, event_number, 10, 10)
-    # sleep
-    elif check == 2:
-        frame = sleep[cycle]
-        cycle, event_number = gif_work(cycle, sleep, event_number, 10, 15)
-    # sleep to idle
-    elif check == 3:
-        frame = sleep_to_idle[cycle]
-        cycle, event_number = gif_work(
-            cycle, sleep_to_idle, event_number, 1, 1)
-    # walk toward left
-    elif check == 4:
-        frame = walk_positive[cycle]
-        cycle, event_number = gif_work(
-            cycle, walk_positive, event_number, 1, 9)
-        x -= 3
-    # walk towards right
-    elif check == 5:
-        frame = walk_negative[cycle]
-        cycle, event_number = gif_work(
-            cycle, walk_negative, event_number, 1, 9)
-        x -= -3
-    window.geometry('100x100+'+str(x)+'+' +
-                    str(window.winfo_screenheight() - 150))
-    label.configure(image=frame)
-    window.after(1, event, cycle, check, event_number, x)
+    # Updates state and gif
+    def next_state(self):
+        # print("Before: ", self.state)
+        self.state = random.choice(NEXT_STATE[self.state])
+        # print("After: ", self.state)
+        self.cycle = 0
+        self.animationFramePaths = [ANIMATION_FRAMES_PATH +
+                                    self.state.name + "\\" + name for name in os.listdir(ANIMATION_FRAMES_PATH +
+                                                                                         self.state.name + "\\")]
+
+    # Update state, but make sure that the next state is different from the previous.
+    def change_state_to(self, state: State):
+        self.state = state
+        self.cycle = 0
+        self.animationFramePaths = [ANIMATION_FRAMES_PATH +
+                                    self.state.name + "\\" + name for name in os.listdir(ANIMATION_FRAMES_PATH +
+                                                                                         self.state.name + "\\")]
+
+    def mousePressEvent(self, event) -> None:
+        if(event.button() == Qt.MouseButton.LeftButton):
+            if(self.state == State.sleep or self.state == State.idle_to_sleep):
+                self.change_state_to(State.idle)
+            else:
+                self.change_state_to(State.sleep_to_idle)
+            self.resetTimer()
+        return super().mousePressEvent(event)
+
+    def resetTimer(self) -> None:
+        self.timer.stop()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update)
+        self.timer.start(1)
 
 
-window = tk.Tk()
-# Set x
-x = window.winfo_screenwidth() - 200
+def main():
+    app = QApplication(sys.argv)
+    ex = window()
 
-# call buddy's action gif
-idle = [tk.PhotoImage(file=impath+'idle.gif', format='gif -index %i' % (i))
-        for i in range(5)]  # idle gif
-idle_to_sleep = [tk.PhotoImage(file=impath+'idle_to_sleep.gif',
-                               format='gif -index %i' % (i)) for i in range(8)]  # idle to sleep gif
-sleep = [tk.PhotoImage(file=impath+'sleep.gif', format='gif -index %i' % (i))
-         for i in range(3)]  # sleep gif
-sleep_to_idle = [tk.PhotoImage(file=impath+'sleep_to_idle.gif',
-                               format='gif -index %i' % (i)) for i in range(8)]  # sleep to idle gif
-walk_positive = [tk.PhotoImage(file=impath+'walking_positive.gif',
-                               format='gif -index %i' % (i)) for i in range(8)]  # walk to left gif
-walk_negative = [tk.PhotoImage(file=impath+'walking_negative.gif',
-                               format='gif -index %i' % (i)) for i in range(8)]  # walk to right gif
+    ex.show()
+    sys.exit(app.exec())
 
-def sleep_toggle(event):
-    print("Clicked!")
-    global toggle_sleep
-    toggle_sleep = True
 
-# window configuration
-window.config(highlightbackground='black')
-label = tk.Label(window, bd=0, bg='black')
-window.overrideredirect(True)
-window.wm_attributes('-transparentcolor', 'black')
-# Toggle sleep when clicking
-label.bind("<Button-1>", sleep_toggle)
-label.pack()
-
-# loop the program
-window.after(1, update, cycle, check, event_number, x)
-
-# make the window always on top
-window.attributes('-topmost', True)
-
-window.mainloop()
-
+if __name__ == '__main__':
+    main()
