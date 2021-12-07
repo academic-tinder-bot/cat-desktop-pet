@@ -12,9 +12,7 @@ import random
 
 # Image Path
 ANIMATION_FRAMES_PATH = 'assets\\animation_frames\\'
-tempgifpath = "assets\\animation_frames\\idle\\"
-tempimgspath = [ANIMATION_FRAMES_PATH +
-                name for name in os.listdir(ANIMATION_FRAMES_PATH)]
+SYSTEM_TRAY_ICON_PATH = "assets\\systemtray_icon\\icon.png"
 
 
 class State(Enum):
@@ -56,7 +54,7 @@ STATE_DISPLACEMENTS = {
 }
 
 
-class window(QWidget):
+class PetWindow(QWidget):
     cycle = 0
     animationFramePaths = None
     state = State.idle
@@ -65,7 +63,7 @@ class window(QWidget):
     ycoord = 0
 
     def __init__(self, parent=None):
-        super(window, self).__init__(parent)
+        super(PetWindow, self).__init__(parent)
 
         # Get window size
         self.xcoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().width() - 250
@@ -145,11 +143,38 @@ class window(QWidget):
         self.timer.start(1)
 
 
+class SystemTrayIcon(QSystemTrayIcon):
+
+    def __init__(self, icon, parent=None):
+        QtGui.QSystemTrayIcon.__init__(self, icon, parent)
+        menu = QtGui.QMenu(parent)
+        exitAction = menu.addAction("Exit")
+        self.setContextMenu(menu)
+
+
 def main():
     app = QApplication(sys.argv)
-    ex = window()
 
+    # Application Window
+    ex = PetWindow()
     ex.show()
+
+    # System Tray
+    tray = QSystemTrayIcon()
+    tray.setIcon(QIcon(SYSTEM_TRAY_ICON_PATH))
+    tray.setVisible(True)
+
+    menu = QMenu()
+    # option1 = QAction("Option 1")
+    # menu.addAction(option1)
+
+    # To quit the app
+    quit = QAction("Kill Pet")
+    quit.triggered.connect(app.quit)
+    menu.addAction(quit)
+
+    tray.setContextMenu(menu)
+
     sys.exit(app.exec())
 
 
