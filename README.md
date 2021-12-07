@@ -9,4 +9,4 @@ A nice desktop pet for you!
 1. To get the latest release, go to [releases](https://github.com/Dernbu/cat-desktop-pet/releases).
 2. Download and extract the .zip file
 4. Run `cat-desktop-pet.exe` for Cat.
-5. Run `kill-pet.bat` to close Cat.
+5. To close cat, go to system tray and right-click Cat.
