@@ -17,8 +17,8 @@ class PetWindow(QWidget):
     def __init__(self, parent=None):
         super(PetWindow, self).__init__(parent)
 
-        self.xcoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().width() - 250
-        self.ycoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().height() - 100
+        self.xcoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().width() - sprite.SPRITE_SIZE.x - 150
+        self.ycoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().height() - sprite.SPRITE_SIZE.y
         self.move(self.xcoord, self.ycoord)
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
