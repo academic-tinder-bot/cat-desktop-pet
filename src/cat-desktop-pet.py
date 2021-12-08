@@ -11,14 +11,15 @@ from sprite.sprite_cat import Cat as sprite
 SYSTEM_TRAY_ICON_PATH = "assets\\systemtray_icon\\icon.png"
 
 
-
 class PetWindow(QWidget):
 
     def __init__(self, parent=None):
         super(PetWindow, self).__init__(parent)
 
-        self.xcoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().width() - sprite.SPRITE_SIZE.x - 150
-        self.ycoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().height() - sprite.SPRITE_SIZE.y
+        self.xcoord = QtGui.QGuiApplication.primaryScreen().availableGeometry().width() - \
+            sprite.SPRITE_SIZE.x - 150
+        self.ycoord = QtGui.QGuiApplication.primaryScreen(
+        ).availableGeometry().height() - sprite.SPRITE_SIZE.y
         self.move(self.xcoord, self.ycoord)
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
@@ -35,26 +36,65 @@ class PetWindow(QWidget):
         self.timer = QTimer()
         # self.next_state()
         sprite.init(self.xcoord, self.ycoord)
-        self.timer.timeout.connect(self.update)
-        self.timer.start(1)
+        # self.timer.timeout.connect(self.update)
+        # self.timer.start(1)
 
+        # Animation Timer
+        self.animationTimer = QTimer()
+        self.animationTimer.timeout.connect(self.update_sprite_render)
+        self.animationTimer.start(1)
         # I don't know why, but not having this line breaks the animation, and I'm not going to question why
         self.label.setPixmap(QPixmap(sprite.getCurrentFramePath()))
 
-    def update(self):
-        self.update_sprite_render()
+    animationTimer: QTimer
+
+    # def update(self):
+    #     self.update_sprite_render()
 
     def update_sprite_render(self):
         sprite.update()
         self.label.setPixmap(QPixmap(sprite.getCurrentFramePath()))
-        self.timer.start(sprite.getCurrentFrameDelay())
+        self.animationTimer.start(sprite.getCurrentFrameDelay())
         self.move(sprite.getCurrentPos().x, sprite.getCurrentPos().y)
 
-    def mousePressEvent(self, event) -> None:
+    coordsFromMouse = QPoint()
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
         if(event.button() == Qt.MouseButton.LeftButton):
             sprite.onLeftClick(event)
-            self.resetTimer()
+            self.resetAnimationTimer()
+
+        self.xcoord = sprite.pos.x
+        self.ycoord = sprite.pos.y
+
+        self.coordsFromMouse = QPoint(self.xcoord, self.ycoord) - QPoint(
+            int(event.globalPosition().x()), int(event.globalPosition().y()))
+
+        self.animationTimer.stop()
         return super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
+        self.animationTimer.stop()
+        eventPos = QPoint(int(event.globalPosition().x()), int(event.globalPosition().y()))
+        delta = eventPos - QPoint(self.xcoord, self.ycoord)
+
+        newPos = QPoint(self.xcoord, self.ycoord) + delta + self.coordsFromMouse
+        self.move(newPos.x(), newPos.y())
+        self.xcoord = newPos.x()
+        self.ycoord = newPos.y()
+        return super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        # print("Release!")
+        self.resetAnimationTimer()
+        sprite.setCurrentPos(self.xcoord, self.ycoord)
+        return super().mouseReleaseEvent(event)
+
+    def resetAnimationTimer(self) -> None:
+        self.animationTimer.stop()
+        self.animationTimer = QTimer()
+        self.animationTimer.timeout.connect(self.update_sprite_render)
+        self.animationTimer.start(1)
 
     def resetTimer(self) -> None:
         self.timer.stop()
